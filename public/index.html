@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Battle Brick</title>
+  <link rel="stylesheet" href="/styles/app.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section id="home-screen" class="screen card active">
+      <div class="brand">
+        <div class="brand-mark">BB</div>
+        <div>
+          <h1>Battle Brick</h1>
+          <p>Build the wall. Set the trap. Win the equation.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          Player name
+          <input id="player-name" type="text" maxlength="24" placeholder="Player" autocomplete="off" />
+        </label>
+
+        <div>
+          <div class="label">Time control</div>
+          <div id="time-controls" class="time-controls">
+            <button class="time-button" data-time="1+0" type="button">1 + 0</button>
+            <button class="time-button" data-time="3+0" type="button">3 + 0</button>
+            <button class="time-button" data-time="5+0" type="button">5 + 0</button>
+            <button class="time-button selected" data-time="10+0" type="button">10 + 0</button>
+          </div>
+        </div>
+      </div>
+
+      <button id="start-button" class="primary-button" type="button">Find opponent</button>
+
+      <div class="rules-box">
+        <h2>Rule</h2>
+        <p>Place a digit from 0 to 9 into an empty brick. Some neighboring brick triples form equations. If your move completes a wrong equation, you lose immediately.</p>
+      </div>
+    </section>
+
+    <section id="queue-screen" class="screen card">
+      <h2>Finding an opponent...</h2>
+      <p id="queue-message">Waiting for another player.</p>
+      <div class="loader"></div>
+      <button id="cancel-button" class="secondary-button" type="button">Cancel</button>
+    </section>
+
+    <section id="game-screen" class="screen game-layout">
+      <header class="game-header card">
+        <div>
+          <h1>Battle Brick</h1>
+          <p id="game-subtitle">Local multiplayer</p>
+        </div>
+        <div id="connection-status" class="status-pill">Connecting...</div>
+      </header>
+
+      <section class="scoreboard card">
+        <div class="player-card" id="player-self-card">
+          <span class="small-label">You</span>
+          <strong id="self-name">Player</strong>
+          <span id="self-timer">10:00</span>
+        </div>
+        <div class="turn-card">
+          <span class="small-label">Status</span>
+          <strong id="turn-status">Waiting...</strong>
+          <span id="result-message"></span>
+        </div>
+        <div class="player-card" id="player-opponent-card">
+          <span class="small-label">Opponent</span>
+          <strong id="opponent-name">Opponent</strong>
+          <span id="opponent-timer">10:00</span>
+        </div>
+      </section>
+
+      <section class="main-grid">
+        <div class="board-card card">
+          <div id="board" class="board" aria-label="Battle Brick board"></div>
+          <div id="number-panel" class="number-panel" aria-label="Number selector"></div>
+        </div>
+
+        <aside class="side-card card">
+          <h2>Game info</h2>
+          <div id="info-box" class="info-box">Select an empty brick during your turn, then choose a number.</div>
+
+          <h2>Chat</h2>
+          <div id="messages" class="messages"></div>
+          <form id="chat-form" class="chat-form">
+            <input id="chat-input" type="text" maxlength="300" placeholder="Message" autocomplete="off" />
+            <button type="submit">Send</button>
+          </form>
+
+          <button id="new-game-button" class="secondary-button full-width" type="button">New game</button>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/scripts/app.js"></script>
+</body>
+</html>

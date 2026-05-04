@@ -1,0 +1,26 @@
+{
+  "name": "battle-brick-fixed",
+  "version": "2.0.0",
+  "description": "Battle Brick - stable local multiplayer version",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": [
+    "battle-brick",
+    "socket.io",
+    "multiplayer",
+    "puzzle-game"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
