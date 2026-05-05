@@ -109,6 +109,7 @@
         <div class="player-card" id="player-opponent-card">
           <span class="small-label">Opponent</span>
           <strong id="opponent-name">Opponent</strong>
+          <span id="opponent-status" class="player-status" data-type="online">Online</span>
           <span id="opponent-timer">10:00</span>
         </div>
       </section>
@@ -179,6 +180,23 @@
               </button>
             </div>
           </div>
+          
+          <div id="rematch-panel" class="decision-panel hidden">
+            <div>
+              <strong>Rematch request</strong>
+              <p id="rematch-offer-text">Opponent wants a rematch.</p>
+            </div>
+
+            <div class="decision-actions">
+              <button id="accept-rematch-button" class="accept-button" type="button">
+                Accept
+              </button>
+
+              <button id="decline-rematch-button" class="decline-button" type="button">
+                Decline
+              </button>
+            </div>
+          </div>
 
           <!-- CHAT -->
           <h2>Chat</h2>
@@ -199,15 +217,19 @@
             </button>
           </form>
 
-          <div id="end-actions" class="end-actions hidden">
-            <button id="new-game-button" class="secondary-button end-button" type="button">
-              New game
-            </button>
+        <div id="end-actions" class="end-actions hidden">
+          <button id="rematch-button" class="secondary-button end-button rematch-action" type="button">
+            Rematch
+          </button>
 
-            <button id="home-button" class="secondary-button end-button home-action" type="button">
-              Go home
-            </button>
-          </div>
+          <button id="new-game-button" class="secondary-button end-button" type="button">
+            New game
+          </button>
+
+          <button id="home-button" class="secondary-button end-button home-action" type="button">
+            Go home
+          </button>
+        </div>
 
         </aside>
       </section>

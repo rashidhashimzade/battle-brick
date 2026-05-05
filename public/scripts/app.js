@@ -26,6 +26,7 @@ const els = {
   gameSubtitle: document.getElementById('game-subtitle'),
   selfName: document.getElementById('self-name'),
   opponentName: document.getElementById('opponent-name'),
+  opponentStatus: document.getElementById('opponent-status'),
   selfTimer: document.getElementById('self-timer'),
   opponentTimer: document.getElementById('opponent-timer'),
   selfCard: document.getElementById('player-self-card'),
@@ -49,7 +50,13 @@ const els = {
 
   resignPanel: document.getElementById('resign-panel'),
   confirmResignButton: document.getElementById('confirm-resign-button'),
-  cancelResignButton: document.getElementById('cancel-resign-button')
+  cancelResignButton: document.getElementById('cancel-resign-button'),
+
+  rematchButton: document.getElementById('rematch-button'),
+  rematchPanel: document.getElementById('rematch-panel'),
+  rematchOfferText: document.getElementById('rematch-offer-text'),
+  acceptRematchButton: document.getElementById('accept-rematch-button'),
+  declineRematchButton: document.getElementById('decline-rematch-button'),
 };
 
 let selectedTimeControl = localStorage.getItem('battleBrickTimeControl') || '10+0';
@@ -59,6 +66,8 @@ let game = null;
 let myIndex = null;
 let isGameOver = false;
 let pendingDrawOffer = null;
+let lastMove = null;
+let pendingRematchOffer = null;
 
 if (!playerToken) {
   playerToken = createClientId();
@@ -118,11 +127,53 @@ function updateConnection(text, type = 'neutral') {
   els.connectionStatus.dataset.type = type;
 }
 
+function setOpponentStatus(text, type = 'online') {
+  if (!els.opponentStatus) return;
+
+  els.opponentStatus.textContent = text;
+  els.opponentStatus.dataset.type = type;
+}
+
+function updateOpponentStatus() {
+  if (!game || myIndex === null) return;
+
+  const opponentIndex = myIndex === 0 ? 1 : 0;
+  const opponent = game.players?.[opponentIndex];
+
+  if (!opponent) {
+    setOpponentStatus('Unknown', 'neutral');
+    return;
+  }
+
+  if (isGameOver) {
+    if (opponent.connected) {
+      setOpponentStatus('Online', 'online');
+    } else {
+      setOpponentStatus('Disconnected', 'danger');
+    }
+    return;
+  }
+
+  if (!opponent.connected) {
+    setOpponentStatus('Reconnecting...', 'warning');
+    return;
+  }
+
+  if (game.currentPlayerIndex === opponentIndex) {
+    setOpponentStatus('Thinking...', 'thinking');
+    return;
+  }
+
+  setOpponentStatus('Online', 'online');
+}
+
 function updateTurnStatus() {
   if (!game) return;
 
   els.selfCard.classList.toggle('active-turn', game.currentPlayerIndex === myIndex && !isGameOver);
   els.opponentCard.classList.toggle('active-turn', game.currentPlayerIndex !== myIndex && !isGameOver);
+
+  updateOpponentStatus();
 
   if (isGameOver) return;
 
@@ -248,22 +299,40 @@ function applyMove({ row, col, value }) {
   if (!game) return;
 
   game.gridVals[row][col] = value;
+  lastMove = { row, col, value };
+
   const brick = getBrick(row, col);
+
   if (brick) {
     brick.textContent = String(value);
     brick.classList.add('filled');
     brick.classList.remove('selected');
   }
+
+  markLastMove(row, col);
 }
 
 function getBrick(row, col) {
   return els.board.querySelector(`.brick[data-row="${row}"][data-col="${col}"]`);
 }
 
+function markLastMove(row, col) {
+  for (const brick of els.board.querySelectorAll('.brick.last-move')) {
+    brick.classList.remove('last-move');
+  }
+
+  const brick = getBrick(row, col);
+
+  if (brick) {
+    brick.classList.add('last-move');
+  }
+}
+
 function hydrateGame(payload) {
   game = payload;
   myIndex = payload.playerIndex;
   isGameOver = payload.status === 'over';
+  lastMove = null;
   els.endActions.classList.toggle('hidden', !isGameOver);
 
   const opponentIndex = myIndex === 0 ? 1 : 0;
@@ -277,6 +346,8 @@ function hydrateGame(payload) {
   els.messages.innerHTML = '';
 
   pendingDrawOffer = null;
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
   els.drawOfferPanel.classList.add('hidden');
   els.resignPanel.classList.add('hidden');
   els.drawButton.disabled = isGameOver;
@@ -345,6 +416,9 @@ function addMessage(text, sender = 'system') {
 
 function startMatchmaking() {
   const name = getPlayerName();
+  lastMove = null;
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
   localStorage.setItem('battleBrickPlayerName', name);
 
   els.endActions.classList.add('hidden');
@@ -365,7 +439,9 @@ function resetToHome() {
   isGameOver = false;
   selectedBrick = null;
   pendingDrawOffer = null;
-
+  lastMove = null;
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
   els.drawOfferPanel.classList.add('hidden');
   els.resignPanel.classList.add('hidden');
   els.endActions.classList.add('hidden');
@@ -444,6 +520,37 @@ els.chatForm.addEventListener('submit', event => {
   els.chatInput.value = '';
 });
 
+els.rematchButton.addEventListener('click', () => {
+  if (!game || !isGameOver) return;
+
+  socket.emit('offer-rematch');
+  els.rematchButton.disabled = true;
+  setInfo('Rematch request sent. Waiting for opponent response.', 'warning');
+});
+
+els.acceptRematchButton.addEventListener('click', () => {
+  if (!pendingRematchOffer || !game || !isGameOver) return;
+
+  socket.emit('respond-rematch', {
+    accepted: true
+  });
+
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
+  setInfo('Starting rematch...', 'success');
+});
+
+els.declineRematchButton.addEventListener('click', () => {
+  if (!pendingRematchOffer || !game || !isGameOver) return;
+
+  socket.emit('respond-rematch', {
+    accepted: false
+  });
+
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
+});
+
 socket.on('connect', () => {
   updateConnection('Connected', 'success');
 
@@ -480,6 +587,43 @@ socket.on('timer-update', payload => {
   updateTurnStatus();
 });
 
+socket.on('rematch-offered', payload => {
+  if (!game || payload.gameId !== game.gameId || !isGameOver) return;
+
+  if (payload.fromIndex === myIndex) {
+    addMessage('You requested a rematch.', 'system');
+    setInfo('Rematch request sent. Waiting for opponent response.', 'warning');
+    return;
+  }
+
+  pendingRematchOffer = payload;
+
+  els.rematchOfferText.textContent = `${payload.fromName} wants a rematch.`;
+  els.rematchPanel.classList.remove('hidden');
+
+  addMessage(`${payload.fromName} requested a rematch.`, 'system');
+  setInfo(`${payload.fromName} wants a rematch.`, 'warning');
+});
+
+socket.on('rematch-declined', payload => {
+  if (!game || payload.gameId !== game.gameId) return;
+
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
+  els.rematchButton.disabled = false;
+
+  addMessage(payload.message || 'Rematch declined.', 'system');
+  setInfo(payload.message || 'Rematch declined.', 'warning');
+});
+
+socket.on('rematch-error', payload => {
+  pendingRematchOffer = null;
+  els.rematchPanel.classList.add('hidden');
+  els.rematchButton.disabled = false;
+
+  setInfo(payload.message || 'Rematch request failed.', 'danger');
+});
+
 socket.on('turn-changed', payload => {
   if (!game || payload.gameId !== game.gameId) return;
   game.currentPlayerIndex = payload.currentPlayerIndex;
@@ -504,8 +648,11 @@ socket.on('game-over', payload => {
   markInvalidRules(payload.invalidRules || []);
 
   pendingDrawOffer = null;
+  pendingRematchOffer = null;
+
   els.drawOfferPanel.classList.add('hidden');
   els.resignPanel.classList.add('hidden');
+  els.rematchPanel.classList.add('hidden');
 
   let result = 'Game over';
   let infoType = 'neutral';
@@ -531,6 +678,8 @@ socket.on('game-over', payload => {
 
   els.drawButton.disabled = true;
   els.resignButton.disabled = true;
+  els.rematchButton.disabled = false;
+  updateOpponentStatus();
   els.endActions.classList.remove('hidden');
 });
 
@@ -576,12 +725,24 @@ socket.on('chat-message', payload => {
 
 socket.on('player-disconnected', payload => {
   if (!game || payload.gameId !== game.gameId) return;
+
+  const player = game.players?.[payload.playerIndex];
+  if (player) player.connected = false;
+
+  updateOpponentStatus();
+
   addMessage(`${payload.name} disconnected. Waiting for reconnect...`, 'system');
   setInfo(`${payload.name} disconnected. They have ${Math.round(payload.graceMs / 1000)} seconds to reconnect.`, 'warning');
 });
 
 socket.on('player-reconnected', payload => {
   if (!game || payload.gameId !== game.gameId) return;
+
+  const player = game.players?.[payload.playerIndex];
+  if (player) player.connected = true;
+
+  updateOpponentStatus();
+
   addMessage(`${payload.name} reconnected.`, 'system');
   setInfo(`${payload.name} reconnected.`, 'success');
 });

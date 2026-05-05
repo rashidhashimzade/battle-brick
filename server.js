@@ -218,6 +218,7 @@ function publicGameState(game, playerIndex = null) {
     wall: game.wall,
     gridVals: game.gridVals,
     currentPlayerIndex: game.currentPlayerIndex,
+    rematchOfferFrom: game.rematchOfferFrom,
     timers: game.timers,
     status: game.status,
     drawOfferFrom: game.drawOfferFrom,
@@ -236,6 +237,114 @@ function emitTimers(game) {
     timers: game.timers,
     currentPlayerIndex: game.currentPlayerIndex
   });
+}
+
+function handleOfferRematch(socket) {
+  const { game, playerIndex } = getGameAndPlayer(socket);
+
+  if (!game || playerIndex === -1) {
+    socket.emit('rematch-error', { message: 'You are not in a game.' });
+    return;
+  }
+
+  if (game.status !== 'over') {
+    socket.emit('rematch-error', { message: 'Rematch is available only after the game ends.' });
+    return;
+  }
+
+  if (game.rematchOfferFrom !== null) {
+    socket.emit('rematch-error', { message: 'There is already an active rematch request.' });
+    return;
+  }
+
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = game.players[opponentIndex];
+
+  if (!opponent.connected || !opponent.socketId || !activeSocket(opponent.socketId)) {
+    socket.emit('rematch-error', { message: 'Opponent is not connected.' });
+    return;
+  }
+
+  game.rematchOfferFrom = playerIndex;
+
+  io.to(game.id).emit('rematch-offered', {
+    gameId: game.id,
+    fromIndex: playerIndex,
+    fromName: game.players[playerIndex].name
+  });
+}
+
+function handleRespondRematch(socket, payload = {}) {
+  const { game, playerIndex } = getGameAndPlayer(socket);
+
+  if (!game || playerIndex === -1) {
+    socket.emit('rematch-error', { message: 'You are not in a game.' });
+    return;
+  }
+
+  if (game.status !== 'over') {
+    socket.emit('rematch-error', { message: 'Rematch is available only after the game ends.' });
+    return;
+  }
+
+  if (game.rematchOfferFrom === null || game.rematchOfferFrom === undefined) {
+    socket.emit('rematch-error', { message: 'There is no active rematch request.' });
+    return;
+  }
+
+  if (game.rematchOfferFrom === playerIndex) {
+    socket.emit('rematch-error', { message: 'You cannot accept your own rematch request.' });
+    return;
+  }
+
+  const accepted = Boolean(payload.accepted);
+
+  if (!accepted) {
+    const offeredBy = game.players[game.rematchOfferFrom].name;
+    game.rematchOfferFrom = null;
+
+    io.to(game.id).emit('rematch-declined', {
+      gameId: game.id,
+      declinedByIndex: playerIndex,
+      declinedByName: game.players[playerIndex].name,
+      message: `${game.players[playerIndex].name} declined ${offeredBy}'s rematch request.`
+    });
+
+    return;
+  }
+
+  const playerA = game.players[0];
+  const playerB = game.players[1];
+
+  if (
+    !playerA.connected ||
+    !playerB.connected ||
+    !playerA.socketId ||
+    !playerB.socketId ||
+    !activeSocket(playerA.socketId) ||
+    !activeSocket(playerB.socketId)
+  ) {
+    socket.emit('rematch-error', { message: 'Both players must be connected for a rematch.' });
+    return;
+  }
+
+  const oldGameId = game.id;
+
+  createGame(
+    {
+      socketId: playerA.socketId,
+      token: playerA.token,
+      name: playerA.name
+    },
+    {
+      socketId: playerB.socketId,
+      token: playerB.token,
+      name: playerB.name
+    },
+    game.timeControl
+  );
+
+  cleanupGame(oldGameId);
 }
 
 function clearGameTimer(game) {
@@ -298,6 +407,7 @@ function createGame(playerA, playerB, timeControl) {
     timers: [maxTime, maxTime],
     status: 'playing',
     drawOfferFrom: null,
+    rematchOfferFrom: null,
     lastTick: Date.now(),
     interval: null,
     players: [
@@ -683,6 +793,8 @@ io.on('connection', socket => {
   socket.on('offer-draw', () => handleOfferDraw(socket));
   socket.on('respond-draw', payload => handleRespondDraw(socket, payload));
   socket.on('resign', () => handleResign(socket));
+  socket.on('offer-rematch', () => handleOfferRematch(socket));
+  socket.on('respond-rematch', payload => handleRespondRematch(socket, payload));
   socket.on('request-state', () => handleRequestState(socket));
   socket.on('disconnect', () => handleDisconnect(socket));
 });

@@ -823,24 +823,6 @@ input:focus {
 
 /* End-game actions */
 
-.end-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.end-button {
-  margin-top: 0;
-  padding: 14px 14px;
-  border-radius: 14px;
-  font-weight: 950;
-}
-
-.home-action {
-  background: rgba(249, 115, 22, 0.16);
-  border-color: rgba(249, 115, 22, 0.38);
-}
-
 .home-action:hover {
   background: rgba(249, 115, 22, 0.26);
 }
@@ -920,4 +902,127 @@ input:focus {
   .end-actions {
     grid-template-columns: 1fr;
   }
+}
+
+.brick.last-move {
+  z-index: 7;
+}
+
+.brick.last-move::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #facc15;
+  border: 2px solid rgba(32, 21, 15, 0.95);
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.65);
+}
+.end-actions {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.end-button {
+  margin-top: 0;
+  padding: 14px 12px;
+  border-radius: 14px;
+  font-weight: 950;
+}
+
+.rematch-action {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.34), rgba(251, 146, 60, 0.24));
+  border-color: rgba(249, 115, 22, 0.48);
+  color: #fff7ed;
+}
+
+.rematch-action:hover {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.46), rgba(251, 146, 60, 0.32));
+}
+
+.rematch-action:disabled {
+  opacity: 0.55;
+}
+
+.home-action {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.home-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 560px) {
+  .end-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.player-status {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.player-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.player-status[data-type="online"] {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.player-status[data-type="thinking"] {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.08);
+  border-color: rgba(250, 204, 21, 0.24);
+}
+
+.player-status[data-type="warning"] {
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.08);
+  border-color: rgba(249, 115, 22, 0.26);
+}
+
+.player-status[data-type="danger"] {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.26);
+}
+
+.player-card {
+  position: relative;
+}
+
+#player-opponent-card .player-status {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  max-width: 120px;
+  justify-content: center;
+}
+
+#player-opponent-card {
+  padding-right: 145px;
 }
