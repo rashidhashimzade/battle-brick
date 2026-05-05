@@ -262,6 +262,7 @@ function hydrateGame(payload) {
   game = payload;
   myIndex = payload.playerIndex;
   isGameOver = payload.status === 'over';
+  els.newGameButton.style.display = isGameOver ? 'block' : 'none';
 
   const opponentIndex = myIndex === 0 ? 1 : 0;
   const self = payload.players[myIndex];
@@ -269,13 +270,44 @@ function hydrateGame(payload) {
 
   els.selfName.textContent = self?.name || 'You';
   els.opponentName.textContent = opponent?.name || 'Opponent';
-  els.gameSubtitle.textContent = `${payload.timeControl} game · You are Player ${myIndex + 1}`;
+  els.gameSubtitle.textContent = `${payload.timeControl} game`;
   els.resultMessage.textContent = '';
   els.messages.innerHTML = '';
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+  els.resignPanel.classList.add('hidden');
+  els.drawButton.disabled = isGameOver;
+  els.resignButton.disabled = isGameOver;
 
   renderBoard();
   updateTimers(payload.timers);
   updateTurnStatus();
+  if (payload.drawOfferFrom !== null && payload.drawOfferFrom !== undefined && !isGameOver) {
+    const fromIndex = payload.drawOfferFrom;
+    const fromName = payload.players[fromIndex]?.name || 'Opponent';
+
+    if (fromIndex === myIndex) {
+      pendingDrawOffer = {
+        gameId: payload.gameId,
+        fromIndex,
+        fromName
+      };
+
+      els.drawButton.disabled = true;
+      setInfo('Draw offer sent. Waiting for opponent response.', 'warning');
+    } else {
+      pendingDrawOffer = {
+        gameId: payload.gameId,
+        fromIndex,
+        fromName
+      };
+
+      els.drawOfferText.textContent = `${fromName} offered a draw.`;
+      els.drawOfferPanel.classList.remove('hidden');
+      setInfo(`${fromName} offered a draw.`, 'warning');
+    }
+  }
   updateConnection('Connected', 'success');
   showScreen('game');
 }
@@ -339,7 +371,7 @@ for (const button of els.timeButtons) {
 els.startButton.addEventListener('click', startMatchmaking);
 els.cancelButton.addEventListener('click', resetToHome);
 els.newGameButton.addEventListener('click', () => {
-  isGameOver = true;
+  if (game && !isGameOver) return;
   startMatchmaking();
 });
 
@@ -424,25 +456,8 @@ socket.on('queue-cancelled', () => {
   showScreen('home');
 });
 
-socket.on('game-start', payload => {
-  hydrateGame(payload);
-
-  pendingDrawOffer = null;
-  els.drawOfferPanel.classList.add('hidden');
-  els.resignPanel.classList.add('hidden');
-  els.drawButton.disabled = false;
-  els.resignButton.disabled = false;
-});
-
-socket.on('game-state', payload => {
-  hydrateGame(payload);
-
-  pendingDrawOffer = null;
-  els.drawOfferPanel.classList.add('hidden');
-  els.resignPanel.classList.add('hidden');
-  els.drawButton.disabled = false;
-  els.resignButton.disabled = false;
-});
+socket.on('game-start', hydrateGame);
+socket.on('game-state', hydrateGame);
 
 socket.on('timer-update', payload => {
   if (!game || payload.gameId !== game.gameId) return;
@@ -470,25 +485,39 @@ socket.on('game-over', payload => {
   if (!game || payload.gameId !== game.gameId) return;
 
   isGameOver = true;
+
   clearSelectedBrick();
   markInvalidRules(payload.invalidRules || []);
-
-  let result = 'Game over';
-  if (payload.reason === 'draw') result = 'Draw';
-  else if (payload.winnerIndex === myIndex) result = 'You won';
-  else if (payload.loserIndex === myIndex) result = 'You lost';
-
-  els.turnStatus.textContent = result;
-  els.resultMessage.textContent = payload.message || '';
-  setInfo(payload.message || 'Game over.', payload.winnerIndex === myIndex ? 'success' : 'danger');
-  els.selfCard.classList.remove('active-turn');
-  els.opponentCard.classList.remove('active-turn');
 
   pendingDrawOffer = null;
   els.drawOfferPanel.classList.add('hidden');
   els.resignPanel.classList.add('hidden');
+
+  let result = 'Game over';
+  let infoType = 'neutral';
+
+  if (payload.reason === 'draw') {
+    result = 'Draw';
+    infoType = 'warning';
+  } else if (payload.winnerIndex === myIndex) {
+    result = 'You won';
+    infoType = 'success';
+  } else if (payload.loserIndex === myIndex) {
+    result = 'You lost';
+    infoType = 'danger';
+  }
+
+  els.turnStatus.textContent = result;
+  els.resultMessage.textContent = payload.message || '';
+
+  setInfo(payload.message || 'Game over.', infoType);
+
+  els.selfCard.classList.remove('active-turn');
+  els.opponentCard.classList.remove('active-turn');
+
   els.drawButton.disabled = true;
   els.resignButton.disabled = true;
+  els.newGameButton.style.display = 'block';
 });
 
 socket.on('draw-offered', payload => {

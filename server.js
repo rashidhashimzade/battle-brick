@@ -220,6 +220,7 @@ function publicGameState(game, playerIndex = null) {
     currentPlayerIndex: game.currentPlayerIndex,
     timers: game.timers,
     status: game.status,
+    drawOfferFrom: game.drawOfferFrom,
     playerIndex,
     players: game.players.map((player, index) => ({
       index,
