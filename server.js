@@ -296,6 +296,7 @@ function createGame(playerA, playerB, timeControl) {
     currentPlayerIndex: Math.random() < 0.5 ? 0 : 1,
     timers: [maxTime, maxTime],
     status: 'playing',
+    drawOfferFrom: null,
     lastTick: Date.now(),
     interval: null,
     players: [
@@ -573,6 +574,99 @@ function handleDisconnect(socket) {
   // Keep token mapping during grace period to allow reconnect.
   if (token) tokenToGame.set(token, { gameId: game.id, playerIndex });
 }
+function handleOfferDraw(socket) {
+  const { game, playerIndex } = getGameAndPlayer(socket);
+
+  if (!game || playerIndex === -1) {
+    socket.emit('draw-error', { message: 'You are not in an active game.' });
+    return;
+  }
+
+  if (game.status !== 'playing') {
+    socket.emit('draw-error', { message: 'The game is already over.' });
+    return;
+  }
+
+  if (game.drawOfferFrom !== null) {
+    socket.emit('draw-error', { message: 'There is already an active draw offer.' });
+    return;
+  }
+
+  game.drawOfferFrom = playerIndex;
+
+  io.to(game.id).emit('draw-offered', {
+    gameId: game.id,
+    fromIndex: playerIndex,
+    fromName: game.players[playerIndex].name
+  });
+}
+
+function handleRespondDraw(socket, payload = {}) {
+  const { game, playerIndex } = getGameAndPlayer(socket);
+
+  if (!game || playerIndex === -1) {
+    socket.emit('draw-error', { message: 'You are not in an active game.' });
+    return;
+  }
+
+  if (game.status !== 'playing') {
+    socket.emit('draw-error', { message: 'The game is already over.' });
+    return;
+  }
+
+  if (game.drawOfferFrom === null) {
+    socket.emit('draw-error', { message: 'There is no active draw offer.' });
+    return;
+  }
+
+  if (game.drawOfferFrom === playerIndex) {
+    socket.emit('draw-error', { message: 'You cannot accept your own draw offer.' });
+    return;
+  }
+
+  const accepted = Boolean(payload.accepted);
+
+  if (accepted) {
+    endGame(game, {
+      reason: 'draw',
+      winnerIndex: null,
+      loserIndex: null,
+      message: 'Draw agreed by both players.'
+    });
+    return;
+  }
+
+  const offeredBy = game.players[game.drawOfferFrom].name;
+  game.drawOfferFrom = null;
+
+  io.to(game.id).emit('draw-declined', {
+    gameId: game.id,
+    declinedByIndex: playerIndex,
+    declinedByName: game.players[playerIndex].name,
+    message: `${game.players[playerIndex].name} declined ${offeredBy}'s draw offer.`
+  });
+}
+
+function handleResign(socket) {
+  const { game, playerIndex } = getGameAndPlayer(socket);
+
+  if (!game || playerIndex === -1) {
+    socket.emit('move-rejected', { message: 'You are not in an active game.' });
+    return;
+  }
+
+  if (game.status !== 'playing') {
+    socket.emit('move-rejected', { message: 'The game is already over.' });
+    return;
+  }
+
+  endGame(game, {
+    reason: 'resign',
+    loserIndex: playerIndex,
+    winnerIndex: playerIndex === 0 ? 1 : 0,
+    message: `${game.players[playerIndex].name} resigned.`
+  });
+}
 
 io.on('connection', socket => {
   socket.emit('server-ready', {
@@ -585,6 +679,9 @@ io.on('connection', socket => {
   socket.on('cancel-queue', () => handleCancelQueue(socket));
   socket.on('make-move', payload => handleMakeMove(socket, payload));
   socket.on('chat-message', payload => handleChatMessage(socket, payload));
+  socket.on('offer-draw', () => handleOfferDraw(socket));
+  socket.on('respond-draw', payload => handleRespondDraw(socket, payload));
+  socket.on('resign', () => handleResign(socket));
   socket.on('request-state', () => handleRequestState(socket));
   socket.on('disconnect', () => handleDisconnect(socket));
 });

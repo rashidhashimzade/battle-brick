@@ -85,7 +85,41 @@
         <aside class="side-card card">
           <h2>Game info</h2>
           <div id="info-box" class="info-box">Select an empty brick during your turn, then choose a number.</div>
+          <div class="game-actions">
+            <button id="draw-button" class="action-button draw-action" type="button">
+              <span>½</span>
+              Offer Draw
+            </button>
 
+            <button id="resign-button" class="action-button resign-action" type="button">
+              <span>⚑</span>
+              Resign
+            </button>
+          </div>
+
+          <div id="draw-offer-panel" class="decision-panel hidden">
+            <div>
+              <strong>Draw offer received</strong>
+              <p id="draw-offer-text">Opponent offered a draw.</p>
+            </div>
+
+            <div class="decision-actions">
+              <button id="accept-draw-button" class="accept-button" type="button">Accept</button>
+              <button id="decline-draw-button" class="decline-button" type="button">Decline</button>
+            </div>
+          </div>
+
+          <div id="resign-panel" class="decision-panel hidden">
+            <div>
+              <strong>Confirm resignation</strong>
+              <p>You will lose the game immediately.</p>
+            </div>
+
+            <div class="decision-actions">
+              <button id="confirm-resign-button" class="decline-button" type="button">Resign</button>
+              <button id="cancel-resign-button" class="accept-button" type="button">Cancel</button>
+            </div>
+          </div>
           <h2>Chat</h2>
           <div id="messages" class="messages"></div>
           <form id="chat-form" class="chat-form">

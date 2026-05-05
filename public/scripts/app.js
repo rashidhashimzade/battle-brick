@@ -36,7 +36,18 @@ const els = {
   chatForm: document.getElementById('chat-form'),
   chatInput: document.getElementById('chat-input'),
   messages: document.getElementById('messages'),
-  newGameButton: document.getElementById('new-game-button')
+  newGameButton: document.getElementById('new-game-button'),
+  drawButton: document.getElementById('draw-button'),
+  resignButton: document.getElementById('resign-button'),
+
+  drawOfferPanel: document.getElementById('draw-offer-panel'),
+  drawOfferText: document.getElementById('draw-offer-text'),
+  acceptDrawButton: document.getElementById('accept-draw-button'),
+  declineDrawButton: document.getElementById('decline-draw-button'),
+
+  resignPanel: document.getElementById('resign-panel'),
+  confirmResignButton: document.getElementById('confirm-resign-button'),
+  cancelResignButton: document.getElementById('cancel-resign-button')
 };
 
 let selectedTimeControl = localStorage.getItem('battleBrickTimeControl') || '10+0';
@@ -45,6 +56,7 @@ let selectedBrick = null;
 let game = null;
 let myIndex = null;
 let isGameOver = false;
+let pendingDrawOffer = null;
 
 if (!playerToken) {
   playerToken = createClientId();
@@ -331,6 +343,53 @@ els.newGameButton.addEventListener('click', () => {
   startMatchmaking();
 });
 
+els.drawButton.addEventListener('click', () => {
+  if (!game || isGameOver) return;
+
+  socket.emit('offer-draw');
+  els.drawButton.disabled = true;
+  setInfo('Draw offer sent. Waiting for opponent response.', 'warning');
+});
+
+els.resignButton.addEventListener('click', () => {
+  if (!game || isGameOver) return;
+
+  els.resignPanel.classList.remove('hidden');
+});
+
+els.confirmResignButton.addEventListener('click', () => {
+  if (!game || isGameOver) return;
+
+  els.resignPanel.classList.add('hidden');
+  socket.emit('resign');
+});
+
+els.cancelResignButton.addEventListener('click', () => {
+  els.resignPanel.classList.add('hidden');
+});
+
+els.acceptDrawButton.addEventListener('click', () => {
+  if (!pendingDrawOffer || !game || isGameOver) return;
+
+  socket.emit('respond-draw', {
+    accepted: true
+  });
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+});
+
+els.declineDrawButton.addEventListener('click', () => {
+  if (!pendingDrawOffer || !game || isGameOver) return;
+
+  socket.emit('respond-draw', {
+    accepted: false
+  });
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+});
+
 els.chatForm.addEventListener('submit', event => {
   event.preventDefault();
   const text = els.chatInput.value.trim();
@@ -365,8 +424,25 @@ socket.on('queue-cancelled', () => {
   showScreen('home');
 });
 
-socket.on('game-start', hydrateGame);
-socket.on('game-state', hydrateGame);
+socket.on('game-start', payload => {
+  hydrateGame(payload);
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+  els.resignPanel.classList.add('hidden');
+  els.drawButton.disabled = false;
+  els.resignButton.disabled = false;
+});
+
+socket.on('game-state', payload => {
+  hydrateGame(payload);
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+  els.resignPanel.classList.add('hidden');
+  els.drawButton.disabled = false;
+  els.resignButton.disabled = false;
+});
 
 socket.on('timer-update', payload => {
   if (!game || payload.gameId !== game.gameId) return;
@@ -407,6 +483,46 @@ socket.on('game-over', payload => {
   setInfo(payload.message || 'Game over.', payload.winnerIndex === myIndex ? 'success' : 'danger');
   els.selfCard.classList.remove('active-turn');
   els.opponentCard.classList.remove('active-turn');
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+  els.resignPanel.classList.add('hidden');
+  els.drawButton.disabled = true;
+  els.resignButton.disabled = true;
+});
+
+socket.on('draw-offered', payload => {
+  if (!game || payload.gameId !== game.gameId || isGameOver) return;
+
+  if (payload.fromIndex === myIndex) {
+    addMessage('You offered a draw.', 'system');
+    setInfo('Draw offer sent. Waiting for opponent.', 'warning');
+    return;
+  }
+
+  pendingDrawOffer = payload;
+
+  els.drawOfferText.textContent = `${payload.fromName} offered a draw.`;
+  els.drawOfferPanel.classList.remove('hidden');
+
+  addMessage(`${payload.fromName} offered a draw.`, 'system');
+  setInfo(`${payload.fromName} offered a draw.`, 'warning');
+});
+
+socket.on('draw-declined', payload => {
+  if (!game || payload.gameId !== game.gameId || isGameOver) return;
+
+  pendingDrawOffer = null;
+  els.drawOfferPanel.classList.add('hidden');
+  els.drawButton.disabled = false;
+
+  addMessage(payload.message || 'Draw offer declined.', 'system');
+  setInfo(payload.message || 'Draw offer declined.', 'warning');
+});
+
+socket.on('draw-error', payload => {
+  els.drawButton.disabled = false;
+  setInfo(payload.message || 'Draw action failed.', 'danger');
 });
 
 socket.on('chat-message', payload => {
