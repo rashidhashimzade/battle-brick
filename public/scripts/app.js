@@ -36,7 +36,9 @@ const els = {
   chatForm: document.getElementById('chat-form'),
   chatInput: document.getElementById('chat-input'),
   messages: document.getElementById('messages'),
+  endActions: document.getElementById('end-actions'),
   newGameButton: document.getElementById('new-game-button'),
+  homeButton: document.getElementById('home-button'),
   drawButton: document.getElementById('draw-button'),
   resignButton: document.getElementById('resign-button'),
 
@@ -262,7 +264,7 @@ function hydrateGame(payload) {
   game = payload;
   myIndex = payload.playerIndex;
   isGameOver = payload.status === 'over';
-  els.newGameButton.style.display = isGameOver ? 'block' : 'none';
+  els.endActions.classList.toggle('hidden', !isGameOver);
 
   const opponentIndex = myIndex === 0 ? 1 : 0;
   const self = payload.players[myIndex];
@@ -345,6 +347,8 @@ function startMatchmaking() {
   const name = getPlayerName();
   localStorage.setItem('battleBrickPlayerName', name);
 
+  els.endActions.classList.add('hidden');
+
   showScreen('queue');
   els.queueMessage.textContent = 'Connecting to matchmaking...';
 
@@ -360,6 +364,12 @@ function resetToHome() {
   myIndex = null;
   isGameOver = false;
   selectedBrick = null;
+  pendingDrawOffer = null;
+
+  els.drawOfferPanel.classList.add('hidden');
+  els.resignPanel.classList.add('hidden');
+  els.endActions.classList.add('hidden');
+
   socket.emit('cancel-queue');
   showScreen('home');
 }
@@ -373,6 +383,10 @@ els.cancelButton.addEventListener('click', resetToHome);
 els.newGameButton.addEventListener('click', () => {
   if (game && !isGameOver) return;
   startMatchmaking();
+});
+
+els.homeButton.addEventListener('click', () => {
+  resetToHome();
 });
 
 els.drawButton.addEventListener('click', () => {
@@ -517,7 +531,7 @@ socket.on('game-over', payload => {
 
   els.drawButton.disabled = true;
   els.resignButton.disabled = true;
-  els.newGameButton.style.display = 'block';
+  els.endActions.classList.remove('hidden');
 });
 
 socket.on('draw-offered', payload => {

@@ -8,6 +8,13 @@
 </head>
 
 <body>
+  <header class="site-header">
+    <a class="site-brand" href="/" aria-label="BattleBrick home">
+      <img src="/assets/logo.png" alt="BattleBrick logo" />
+      <span>BattleBrick</span>
+    </a>
+  </header>
+
   <main class="app-shell">
 
     <!-- HOME SCREEN -->
@@ -192,9 +199,15 @@
             </button>
           </form>
 
-          <button id="new-game-button" class="secondary-button full-width" type="button">
-            New game
-          </button>
+          <div id="end-actions" class="end-actions hidden">
+            <button id="new-game-button" class="secondary-button end-button" type="button">
+              New game
+            </button>
+
+            <button id="home-button" class="secondary-button end-button home-action" type="button">
+              Go home
+            </button>
+          </div>
 
         </aside>
       </section>
